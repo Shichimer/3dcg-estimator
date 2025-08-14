@@ -10,11 +10,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { Input } from '@/components/ui/input.jsx'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip.jsx'
-import { ChevronDown, Download, Share, Settings, Moon, Sun, HelpCircle } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx'
+import { ChevronDown, Download, Share, Settings, Moon, Sun, HelpCircle, Save, Copy, Check, Link } from 'lucide-react'
 import './App.css'
 
 function App() {
   const [darkMode, setDarkMode] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [seedInput, setSeedInput] = useState('')
   
   // 折りたたみ状態
   const [openSections, setOpenSections] = useState({
@@ -31,7 +36,7 @@ function App() {
   const [duration, setDuration] = useState(60)
   const [resolution, setResolution] = useState('1080p')
   const [additionalVersions, setAdditionalVersions] = useState(0)
-  const [deliveryWeeks, setDeliveryWeeks] = useState(12)
+  const [deliveryMonths, setDeliveryMonths] = useState(3) // 月単位に変更
   
   // 企画・構成
   const [planningLevel, setPlanningLevel] = useState('L0')
@@ -84,6 +89,96 @@ function App() {
     bgmLicense: 20000
   })
 
+  // プリセット設定
+  const [presets, setPresets] = useState({
+    basic: {
+      name: 'Basic',
+      duration: 60,
+      resolution: '1080p',
+      additionalVersions: 0,
+      deliveryMonths: 3,
+      planningLevel: 'L0',
+      workshops: 0,
+      conceptVersions: 1,
+      research: 'none',
+      interviews: 0,
+      storyboardDetail: 'standard',
+      brandGuide: false,
+      approvalLayers: 'single',
+      scratchModels: { S: 0, M: 0, L: 0 },
+      cadModels: { small: 0, medium: 2, large: 0 },
+      cadClean: true,
+      animationComplexity: 'camera',
+      motionGraphics: 'none',
+      lookDevelopment: 'standard',
+      languages: ['ja'],
+      narrationTypes: { ja: 'none' },
+      subtitles: 0,
+      scriptProvided: 'complete',
+      liveAction: false,
+      liveActionDays: 1,
+      locationScouting: false
+    },
+    standard: {
+      name: 'Standard',
+      duration: 120,
+      resolution: '1080p',
+      additionalVersions: 1,
+      deliveryMonths: 4,
+      planningLevel: 'L1',
+      workshops: 1,
+      conceptVersions: 2,
+      research: 'light',
+      interviews: 2,
+      storyboardDetail: 'standard',
+      brandGuide: true,
+      approvalLayers: 'multi',
+      scratchModels: { S: 1, M: 1, L: 0 },
+      cadModels: { small: 2, medium: 3, large: 1 },
+      cadClean: true,
+      animationComplexity: 'exploded',
+      motionGraphics: 'light',
+      lookDevelopment: 'standard',
+      languages: ['ja', 'en'],
+      narrationTypes: { ja: 'ai', en: 'ai' },
+      subtitles: 1,
+      scriptProvided: 'partial',
+      liveAction: false,
+      liveActionDays: 1,
+      locationScouting: false
+    },
+    pro: {
+      name: 'Pro',
+      duration: 300,
+      resolution: '4K',
+      additionalVersions: 3,
+      deliveryMonths: 6,
+      planningLevel: 'L3',
+      workshops: 3,
+      conceptVersions: 3,
+      research: 'detailed',
+      interviews: 5,
+      storyboardDetail: 'detailed',
+      brandGuide: true,
+      approvalLayers: 'complex',
+      scratchModels: { S: 2, M: 3, L: 2 },
+      cadModels: { small: 3, medium: 5, large: 3 },
+      cadClean: false,
+      animationComplexity: 'physics',
+      motionGraphics: 'heavy',
+      lookDevelopment: 'rich',
+      languages: ['ja', 'en', 'zh'],
+      narrationTypes: { ja: 'human', en: 'human', zh: 'ai' },
+      subtitles: 3,
+      scriptProvided: 'none',
+      liveAction: true,
+      liveActionDays: 2,
+      locationScouting: true
+    }
+  })
+
+  const [presetDialogOpen, setPresetDialogOpen] = useState(false)
+
   // 単価設定の表示名とヘルプテキスト
   const rateLabels = {
     pm: { name: 'プロジェクトマネージャー', unit: '円/時間', help: '企画・構成、実写撮影の管理業務に影響' },
@@ -109,7 +204,7 @@ function App() {
     duration: '動画の長さ。長いほど制作工数が増加します。',
     resolution: '映像の解像度。4Kは1080pより約60%工数が増加します。',
     additionalVersions: '基本版以外の派生版本数。言語違いや尺違いなど。',
-    deliveryWeeks: '制作期間。12週未満はラッシュ料金が適用されます。',
+    deliveryMonths: '制作期間。3ヶ月未満はラッシュ料金が適用されます。',
     planningLevel: 'L0:完全支給 < L1:絵コンテ作成 < L2:構成企画 < L3:ゼロベース企画',
     workshops: '要件定義・方向性すり合わせの共同作業回数（1回=約3時間）',
     conceptVersions: '初回1案。追加案は比較検討用の別軸提案（追加1案=11時間）',
@@ -122,7 +217,7 @@ function App() {
     cadModels: 'CADデータから変換する3Dモデル。小6h、中12h、大28h',
     cadClean: 'CADデータの整備状態。未整備の場合は追加工数が発生',
     animationComplexity: 'アニメーションの複雑度。複雑ほどショット数が増加',
-    motionGraphics: 'テキストやグラフィックスの動的表現の量',
+    motionGraphics: '軽度：字幕テロップ程度、中程度：図解イラストのアニメーション、重度：複雑なモーショングラフィックス',
     lookDevelopment: 'マテリアルやライティングの開発工数',
     languages: '対応言語数。追加言語は翻訳・ナレーション工数が発生',
     narrationTypes: '各言語のナレーション種類。人間音声はAIより高額',
@@ -131,6 +226,159 @@ function App() {
     liveAction: '実写撮影の有無。撮影日数に応じて工数が増加',
     liveActionDays: '実写撮影の日数。1日=8時間（PM1名、CG2名、スタジオ）',
     locationScouting: 'ロケーション下見の有無（PM1名、プランナー1名で6時間）'
+  }
+
+  // データのエンコード/デコード機能
+  const encodeEstimateData = () => {
+    const data = {
+      duration,
+      resolution,
+      additionalVersions,
+      deliveryMonths,
+      planningLevel,
+      workshops,
+      conceptVersions,
+      research,
+      interviews,
+      storyboardDetail,
+      brandGuide,
+      approvalLayers,
+      scratchModels,
+      cadModels,
+      cadClean,
+      animationComplexity,
+      motionGraphics,
+      lookDevelopment,
+      languages,
+      narrationTypes,
+      subtitles,
+      scriptProvided,
+      liveAction,
+      liveActionDays,
+      locationScouting,
+      rates
+    }
+    
+    try {
+      const jsonString = JSON.stringify(data)
+      const encoded = btoa(encodeURIComponent(jsonString))
+      return encoded
+    } catch (error) {
+      console.error('エンコードエラー:', error)
+      return null
+    }
+  }
+
+  const decodeEstimateData = (encodedData) => {
+    try {
+      const jsonString = decodeURIComponent(atob(encodedData))
+      const data = JSON.parse(jsonString)
+      
+      // データの復元
+      setDuration(data.duration || 60)
+      setResolution(data.resolution || '1080p')
+      setAdditionalVersions(data.additionalVersions || 0)
+      setDeliveryMonths(data.deliveryMonths || 3)
+      setPlanningLevel(data.planningLevel || 'L0')
+      setWorkshops(data.workshops || 0)
+      setConceptVersions(data.conceptVersions || 1)
+      setResearch(data.research || 'none')
+      setInterviews(data.interviews || 0)
+      setStoryboardDetail(data.storyboardDetail || 'standard')
+      setBrandGuide(data.brandGuide || false)
+      setApprovalLayers(data.approvalLayers || 'single')
+      setScratchModels(data.scratchModels || { S: 0, M: 0, L: 0 })
+      setCadModels(data.cadModels || { small: 0, medium: 2, large: 0 })
+      setCadClean(data.cadClean !== undefined ? data.cadClean : true)
+      setAnimationComplexity(data.animationComplexity || 'camera')
+      setMotionGraphics(data.motionGraphics || 'none')
+      setLookDevelopment(data.lookDevelopment || 'standard')
+      setLanguages(data.languages || ['ja'])
+      setNarrationTypes(data.narrationTypes || { ja: 'none' })
+      setSubtitles(data.subtitles || 0)
+      setScriptProvided(data.scriptProvided || 'complete')
+      setLiveAction(data.liveAction || false)
+      setLiveActionDays(data.liveActionDays || 1)
+      setLocationScouting(data.locationScouting || false)
+      
+      if (data.rates) {
+        setRates(data.rates)
+      }
+      
+      return true
+    } catch (error) {
+      console.error('デコードエラー:', error)
+      return false
+    }
+  }
+
+  // URLパラメータからデータを読み込み
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const seedParam = urlParams.get('seed')
+    
+    if (seedParam) {
+      const success = decodeEstimateData(seedParam)
+      if (success) {
+        // URLからパラメータを削除（履歴を汚さないため）
+        const newUrl = window.location.pathname
+        window.history.replaceState({}, document.title, newUrl)
+      }
+    }
+  }, [])
+
+  // 共有URL生成
+  const generateShareUrl = () => {
+    const encoded = encodeEstimateData()
+    if (encoded) {
+      const baseUrl = window.location.origin + window.location.pathname
+      const url = `${baseUrl}?seed=${encoded}`
+      setShareUrl(url)
+      setShareDialogOpen(true)
+    }
+  }
+
+  // シード値から読み込み
+  const loadFromSeed = () => {
+    if (seedInput.trim()) {
+      let seedValue = seedInput.trim()
+      
+      // URLが入力された場合はseedパラメータを抽出
+      if (seedValue.includes('?seed=')) {
+        const urlParams = new URLSearchParams(seedValue.split('?')[1])
+        seedValue = urlParams.get('seed') || ''
+      }
+      
+      if (seedValue) {
+        const success = decodeEstimateData(seedValue)
+        if (success) {
+          setSeedInput('')
+          alert('見積もりデータを読み込みました！')
+        } else {
+          alert('無効なシード値です。正しいシード値またはURLを入力してください。')
+        }
+      }
+    }
+  }
+
+  // URLをクリップボードにコピー
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('コピーエラー:', error)
+      // フォールバック
+      const textArea = document.createElement('textarea')
+      textArea.value = shareUrl
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }
 
   // 言語選択の処理
@@ -154,6 +402,70 @@ function App() {
   // 単価変更の処理
   const handleRateChange = (key, value) => {
     setRates({...rates, [key]: parseFloat(value) || 0})
+  }
+
+  // プリセット読み込み
+  const loadPreset = (presetKey) => {
+    const preset = presets[presetKey]
+    setDuration(preset.duration)
+    setResolution(preset.resolution)
+    setAdditionalVersions(preset.additionalVersions)
+    setDeliveryMonths(preset.deliveryMonths)
+    setPlanningLevel(preset.planningLevel)
+    setWorkshops(preset.workshops)
+    setConceptVersions(preset.conceptVersions)
+    setResearch(preset.research)
+    setInterviews(preset.interviews)
+    setStoryboardDetail(preset.storyboardDetail)
+    setBrandGuide(preset.brandGuide)
+    setApprovalLayers(preset.approvalLayers)
+    setScratchModels(preset.scratchModels)
+    setCadModels(preset.cadModels)
+    setCadClean(preset.cadClean)
+    setAnimationComplexity(preset.animationComplexity)
+    setMotionGraphics(preset.motionGraphics)
+    setLookDevelopment(preset.lookDevelopment)
+    setLanguages(preset.languages)
+    setNarrationTypes(preset.narrationTypes)
+    setSubtitles(preset.subtitles)
+    setScriptProvided(preset.scriptProvided)
+    setLiveAction(preset.liveAction)
+    setLiveActionDays(preset.liveActionDays)
+    setLocationScouting(preset.locationScouting)
+    setPresetDialogOpen(false)
+  }
+
+  // プリセット保存
+  const savePreset = (presetKey) => {
+    const newPreset = {
+      name: presets[presetKey].name,
+      duration,
+      resolution,
+      additionalVersions,
+      deliveryMonths,
+      planningLevel,
+      workshops,
+      conceptVersions,
+      research,
+      interviews,
+      storyboardDetail,
+      brandGuide,
+      approvalLayers,
+      scratchModels,
+      cadModels,
+      cadClean,
+      animationComplexity,
+      motionGraphics,
+      lookDevelopment,
+      languages,
+      narrationTypes,
+      subtitles,
+      scriptProvided,
+      liveAction,
+      liveActionDays,
+      locationScouting
+    }
+    setPresets({...presets, [presetKey]: newPreset})
   }
 
   // 計算ロジック
@@ -211,6 +523,24 @@ function App() {
       complex: 1.3
     }
     planningCost *= approvalMultiplier[approvalLayers]
+    
+    // プロジェクト管理費用
+    let projectManagementCost = 0
+    const totalProjectHours = durationMinutes * 0.5 // 基本管理工数
+    projectManagementCost += totalProjectHours * rates.pm
+    
+    // 企画レベルによる管理工数追加
+    const managementMultiplier = {
+      L0: 1.0,
+      L1: 1.2,
+      L2: 1.5,
+      L3: 2.0
+    }
+    projectManagementCost *= managementMultiplier[planningLevel]
+    
+    // ワークショップ・インタビューによる管理工数追加
+    projectManagementCost += workshops * 1 * rates.pm
+    projectManagementCost += interviews * 0.5 * rates.pm
     
     // モデリング費用
     let modelingCost = 0
@@ -309,10 +639,10 @@ function App() {
     }
     
     // 小計
-    const subtotal = planningCost + modelingCost + animationCost + renderingCost + editingCost + languageCost + liveActionCost
+    const subtotal = projectManagementCost + planningCost + modelingCost + animationCost + renderingCost + editingCost + languageCost + liveActionCost
     
     // スケジュール調整
-    const rushMultiplier = deliveryWeeks < 12 ? 1 + Math.min((12 - deliveryWeeks) * 0.1, 0.4) : 1
+    const rushMultiplier = deliveryMonths < 3 ? 1 + Math.min((3 - deliveryMonths) * 0.2, 0.4) : 1
     const adjustedSubtotal = subtotal * rushMultiplier
     
     // 諸経費（利益を各費目に分散）
@@ -323,6 +653,7 @@ function App() {
     // 利益を各費目に比例配分
     const totalBeforeProfit = adjustedSubtotal + management + contingency
     const profitDistribution = {
+      projectManagement: (projectManagementCost * rushMultiplier / adjustedSubtotal) * profit,
       planning: (planningCost * rushMultiplier / adjustedSubtotal) * profit,
       modeling: (modelingCost * rushMultiplier / adjustedSubtotal) * profit,
       animation: (animationCost * rushMultiplier / adjustedSubtotal) * profit,
@@ -339,6 +670,7 @@ function App() {
     return {
       subtotal: adjustedSubtotal,
       breakdown: {
+        projectManagement: projectManagementCost * rushMultiplier + profitDistribution.projectManagement,
         planning: planningCost * rushMultiplier + profitDistribution.planning,
         modeling: modelingCost * rushMultiplier + profitDistribution.modeling,
         animation: animationCost * rushMultiplier + profitDistribution.animation,
@@ -358,7 +690,7 @@ function App() {
       rushMultiplier
     }
   }, [
-    duration, resolution, additionalVersions, deliveryWeeks,
+    duration, resolution, additionalVersions, deliveryMonths,
     planningLevel, workshops, conceptVersions, research, interviews,
     storyboardDetail, brandGuide, approvalLayers,
     scratchModels, cadModels, cadClean,
@@ -367,32 +699,6 @@ function App() {
     liveAction, liveActionDays, locationScouting,
     rates
   ])
-
-  // プリセット読み込み
-  const loadBasicPreset = () => {
-    setDuration(60)
-    setResolution('1080p')
-    setAdditionalVersions(0)
-    setDeliveryWeeks(12)
-    setLanguages(['ja'])
-    setNarrationTypes({ ja: 'none' })
-    setPlanningLevel('L0')
-    setWorkshops(0)
-    setConceptVersions(1)
-    setCadModels({ small: 0, medium: 2, large: 0 })
-    setCadClean(true)
-    setAnimationComplexity('camera')
-    setMotionGraphics('none')
-    setLookDevelopment('standard')
-    setLiveAction(false)
-    setResearch('none')
-    setInterviews(0)
-    setStoryboardDetail('standard')
-    setBrandGuide(false)
-    setApprovalLayers('single')
-    setSubtitles(0)
-    setScriptProvided('complete')
-  }
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('ja-JP', {
@@ -408,10 +714,8 @@ function App() {
     return `${seconds}秒 (${minutes}分${remainingSeconds > 0 ? remainingSeconds + '秒' : ''})`
   }
 
-  const formatDelivery = (weeks) => {
-    const months = Math.floor(weeks / 4)
-    const remainingWeeks = weeks % 4
-    return `${weeks}週 (${months}ヶ月${remainingWeeks > 0 ? remainingWeeks + '週' : ''})`
+  const formatDelivery = (months) => {
+    return `${months}ヶ月`
   }
 
   const toggleSection = (section) => {
@@ -440,17 +744,109 @@ function App() {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <h1 className="text-2xl font-bold">3DCG映像制作 概算見積りシミュレーター</h1>
             <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={loadBasicPreset}>
-                Basicプリセット
-              </Button>
+              <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Save className="w-4 h-4 mr-2" />
+                    プリセット
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>プリセット設定</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {Object.entries(presets).map(([key, preset]) => (
+                      <div key={key} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <h3 className="font-semibold">{preset.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {preset.duration}秒, {preset.resolution}, {formatDelivery(preset.deliveryMonths)}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => loadPreset(key)}
+                          >
+                            読み込み
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => savePreset(key)}
+                          >
+                            保存
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Button variant="outline">
                 <Download className="w-4 h-4 mr-2" />
                 PDF出力
               </Button>
-              <Button variant="outline">
-                <Share className="w-4 h-4 mr-2" />
-                共有
-              </Button>
+              <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={generateShareUrl}>
+                    <Share className="w-4 h-4 mr-2" />
+                    共有
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>見積もりを共有</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium">共有URL</Label>
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          value={shareUrl}
+                          readOnly
+                          className="flex-1"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={copyToClipboard}
+                        >
+                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        このURLを共有すると、現在の単価設定と入力数値がすべて復元されます。
+                      </p>
+                    </div>
+                    
+                    <div className="border-t pt-4">
+                      <Label className="text-sm font-medium">シード値から読み込み</Label>
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          placeholder="シード値またはURLを入力..."
+                          value={seedInput}
+                          onChange={(e) => setSeedInput(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={loadFromSeed}
+                          disabled={!seedInput.trim()}
+                        >
+                          <Link className="w-4 h-4 mr-2" />
+                          読み込み
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        他の人から共有されたURLまたはシード値を入力して見積もりを読み込めます。
+                      </p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Button
                 variant="outline"
                 onClick={() => toggleSection('rates')}
@@ -568,20 +964,20 @@ function App() {
                       
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <Label>納期: {formatDelivery(deliveryWeeks)}</Label>
-                          <HelpIcon text={helpTexts.deliveryWeeks} />
+                          <Label>納期: {formatDelivery(deliveryMonths)}</Label>
+                          <HelpIcon text={helpTexts.deliveryMonths} />
                         </div>
                         <Slider
-                          value={[deliveryWeeks]}
-                          onValueChange={(value) => setDeliveryWeeks(value[0])}
-                          min={4}
-                          max={24}
-                          step={1}
+                          value={[deliveryMonths]}
+                          onValueChange={(value) => setDeliveryMonths(value[0])}
+                          min={1}
+                          max={10}
+                          step={0.5}
                           className="mt-2"
                         />
-                        {deliveryWeeks < 12 && (
+                        {deliveryMonths < 3 && (
                           <p className="text-sm text-orange-600 mt-1">
-                            ⚠️ ラッシュ料金 +{Math.round((12 - deliveryWeeks) * 10)}%
+                            ⚠️ ラッシュ料金 +{Math.round((3 - deliveryMonths) * 20)}%
                           </p>
                         )}
                       </div>
@@ -1153,6 +1549,10 @@ function App() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
+                    <span>プロジェクト管理</span>
+                    <span>{formatCurrency(estimate.breakdown.projectManagement)}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span>企画・構成</span>
                     <span>{formatCurrency(estimate.breakdown.planning)}</span>
                   </div>
@@ -1208,7 +1608,7 @@ function App() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{formatDelivery(deliveryWeeks)}</div>
+                    <div className="text-2xl font-bold">{formatDelivery(deliveryMonths)}</div>
                     <div className="text-sm text-muted-foreground">
                       シーン数: {estimate.scenes} / ショット数: {estimate.shots}
                     </div>
@@ -1237,7 +1637,7 @@ function App() {
                           <ul className="ml-4 space-y-1">
                             <li>動画尺: {formatDuration(duration)}</li>
                             <li>解像度: {resolution}</li>
-                            <li>納期: {formatDelivery(deliveryWeeks)}</li>
+                            <li>納期: {formatDelivery(deliveryMonths)}</li>
                             <li>シーン数: {estimate.scenes}</li>
                             <li>ショット数: {estimate.shots}</li>
                           </ul>
