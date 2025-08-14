@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.j
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx'
 import { Input } from '@/components/ui/input.jsx'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip.jsx'
 import { ChevronDown, Download, Share, Settings, Moon, Sun, HelpCircle } from 'lucide-react'
 import './App.css'
 
@@ -83,6 +84,55 @@ function App() {
     bgmLicense: 20000
   })
 
+  // 単価設定の表示名とヘルプテキスト
+  const rateLabels = {
+    pm: { name: 'プロジェクトマネージャー', unit: '円/時間', help: '企画・構成、実写撮影の管理業務に影響' },
+    planner: { name: 'プランナー', unit: '円/時間', help: '企画・構成の企画レベル、ワークショップ、リサーチに影響' },
+    writer: { name: 'ライター', unit: '円/時間', help: '言語関連の原稿作成、字幕作成に影響' },
+    designer: { name: 'デザイナー', unit: '円/時間', help: '企画・構成の絵コンテ、ブランドガイド作成に影響' },
+    cgGeneralist: { name: 'CGゼネラリスト', unit: '円/時間', help: 'アニメーションのルック開発、レンダリング、実写撮影に影響' },
+    modeler: { name: 'モデラー', unit: '円/時間', help: 'モデリングのスクラッチモデル、CADモデル作成に影響' },
+    animator: { name: 'アニメーター', unit: '円/時間', help: 'アニメーションの基本アニメーション作業に影響' },
+    motionGraphics: { name: 'モーショングラフィックス', unit: '円/時間', help: 'アニメーションのモーショングラフィックス作業に影響' },
+    compositor: { name: 'コンポジター', unit: '円/時間', help: '編集の映像編集、派生版本作成に影響' },
+    sound: { name: 'サウンド', unit: '円/時間', help: '言語関連の音声編集作業に影響' },
+    translationJaToEn: { name: '翻訳（日→英）', unit: '円/文字', help: '言語関連の日本語から英語への翻訳に影響' },
+    translationEnToJa: { name: '翻訳（英→日）', unit: '円/単語', help: '言語関連の英語から日本語への翻訳に影響' },
+    narratorAI: { name: 'AIナレーター', unit: '円/分', help: '言語関連のAI音声ナレーションに影響' },
+    narratorHuman: { name: '人間ナレーター', unit: '円/30分', help: '言語関連の人間音声ナレーションに影響' },
+    studio: { name: 'スタジオ', unit: '円/時間', help: '実写撮影のスタジオ使用料に影響' },
+    bgmLicense: { name: 'BGMライセンス', unit: '円/曲', help: '言語関連のBGM使用料に影響' }
+  }
+
+  // ヘルプテキスト定義
+  const helpTexts = {
+    duration: '動画の長さ。長いほど制作工数が増加します。',
+    resolution: '映像の解像度。4Kは1080pより約60%工数が増加します。',
+    additionalVersions: '基本版以外の派生版本数。言語違いや尺違いなど。',
+    deliveryWeeks: '制作期間。12週未満はラッシュ料金が適用されます。',
+    planningLevel: 'L0:完全支給 < L1:絵コンテ作成 < L2:構成企画 < L3:ゼロベース企画',
+    workshops: '要件定義・方向性すり合わせの共同作業回数（1回=約3時間）',
+    conceptVersions: '初回1案。追加案は比較検討用の別軸提案（追加1案=11時間）',
+    research: '市場調査や競合分析の深度。詳細ほど工数が増加します。',
+    interviews: 'ステークホルダーへのヒアリング回数（1回=約2時間）',
+    storyboardDetail: '絵コンテの詳細度。詳細ほどシーン数×工数が増加します。',
+    brandGuide: 'ブランドガイドライン作成の有無（約16時間）',
+    approvalLayers: '決裁の複雑さ。複雑ほど調整工数が増加します。',
+    scratchModels: 'ゼロから作成する3Dモデル。小8h、中20h、大48h',
+    cadModels: 'CADデータから変換する3Dモデル。小6h、中12h、大28h',
+    cadClean: 'CADデータの整備状態。未整備の場合は追加工数が発生',
+    animationComplexity: 'アニメーションの複雑度。複雑ほどショット数が増加',
+    motionGraphics: 'テキストやグラフィックスの動的表現の量',
+    lookDevelopment: 'マテリアルやライティングの開発工数',
+    languages: '対応言語数。追加言語は翻訳・ナレーション工数が発生',
+    narrationTypes: '各言語のナレーション種類。人間音声はAIより高額',
+    subtitles: '字幕対応言語数。1言語あたり追加工数が発生',
+    scriptProvided: '原稿の支給状況。未支給の場合は原稿作成工数が発生',
+    liveAction: '実写撮影の有無。撮影日数に応じて工数が増加',
+    liveActionDays: '実写撮影の日数。1日=8時間（PM1名、CG2名、スタジオ）',
+    locationScouting: 'ロケーション下見の有無（PM1名、プランナー1名で6時間）'
+  }
+
   // 言語選択の処理
   const handleLanguageChange = (lang, checked) => {
     if (checked) {
@@ -153,6 +203,14 @@ function App() {
     if (brandGuide) {
       planningCost += 16 * rates.designer
     }
+    
+    // 決裁段層による調整工数
+    const approvalMultiplier = {
+      single: 1.0,
+      multi: 1.15,
+      complex: 1.3
+    }
+    planningCost *= approvalMultiplier[approvalLayers]
     
     // モデリング費用
     let modelingCost = 0
@@ -257,24 +315,37 @@ function App() {
     const rushMultiplier = deliveryWeeks < 12 ? 1 + Math.min((12 - deliveryWeeks) * 0.1, 0.4) : 1
     const adjustedSubtotal = subtotal * rushMultiplier
     
-    // 諸経費
+    // 諸経費（利益を各費目に分散）
     const management = adjustedSubtotal * 0.08
     const profit = adjustedSubtotal * 0.18
     const contingency = adjustedSubtotal * 0.10
-    const beforeTax = adjustedSubtotal + management + profit + contingency
+    
+    // 利益を各費目に比例配分
+    const totalBeforeProfit = adjustedSubtotal + management + contingency
+    const profitDistribution = {
+      planning: (planningCost * rushMultiplier / adjustedSubtotal) * profit,
+      modeling: (modelingCost * rushMultiplier / adjustedSubtotal) * profit,
+      animation: (animationCost * rushMultiplier / adjustedSubtotal) * profit,
+      rendering: (renderingCost * rushMultiplier / adjustedSubtotal) * profit,
+      editing: (editingCost * rushMultiplier / adjustedSubtotal) * profit,
+      language: (languageCost * rushMultiplier / adjustedSubtotal) * profit,
+      liveAction: (liveActionCost * rushMultiplier / adjustedSubtotal) * profit
+    }
+    
+    const beforeTax = totalBeforeProfit + profit
     const tax = beforeTax * 0.10
     const total = beforeTax + tax
     
     return {
       subtotal: adjustedSubtotal,
       breakdown: {
-        planning: planningCost * rushMultiplier,
-        modeling: modelingCost * rushMultiplier,
-        animation: animationCost * rushMultiplier,
-        rendering: renderingCost * rushMultiplier,
-        editing: editingCost * rushMultiplier,
-        language: languageCost * rushMultiplier,
-        liveAction: liveActionCost * rushMultiplier
+        planning: planningCost * rushMultiplier + profitDistribution.planning,
+        modeling: modelingCost * rushMultiplier + profitDistribution.modeling,
+        animation: animationCost * rushMultiplier + profitDistribution.animation,
+        rendering: renderingCost * rushMultiplier + profitDistribution.rendering,
+        editing: editingCost * rushMultiplier + profitDistribution.editing,
+        language: languageCost * rushMultiplier + profitDistribution.language,
+        liveAction: liveActionCost * rushMultiplier + profitDistribution.liveAction
       },
       management,
       profit,
@@ -347,6 +418,20 @@ function App() {
     setOpenSections(prev => ({...prev, [section]: !prev[section]}))
   }
 
+  // ヘルプアイコンコンポーネント
+  const HelpIcon = ({ text }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="max-w-xs">{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+
   return (
     <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
       <div className="bg-background text-foreground">
@@ -389,17 +474,25 @@ function App() {
           <CollapsibleContent>
             <div className="bg-muted/50 p-4 border-b">
               <div className="max-w-7xl mx-auto">
-                <h3 className="text-lg font-semibold mb-4">単価設定（円/時間）</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <h3 className="text-lg font-semibold mb-4">単価設定</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(rates).map(([key, value]) => (
-                    <div key={key}>
-                      <Label className="text-xs">{key}</Label>
-                      <Input
-                        type="number"
-                        value={value}
-                        onChange={(e) => handleRateChange(key, e.target.value)}
-                        className="mt-1"
-                      />
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-medium">{rateLabels[key].name}</Label>
+                        <HelpIcon text={rateLabels[key].help} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={value}
+                          onChange={(e) => handleRateChange(key, e.target.value)}
+                          className="flex-1"
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {rateLabels[key].unit}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -427,7 +520,10 @@ function App() {
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
                       <div>
-                        <Label>動画尺: {formatDuration(duration)}</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>動画尺: {formatDuration(duration)}</Label>
+                          <HelpIcon text={helpTexts.duration} />
+                        </div>
                         <Slider
                           value={[duration]}
                           onValueChange={(value) => setDuration(value[0])}
@@ -439,7 +535,10 @@ function App() {
                       </div>
                       
                       <div>
-                        <Label>解像度</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>解像度</Label>
+                          <HelpIcon text={helpTexts.resolution} />
+                        </div>
                         <RadioGroup value={resolution} onValueChange={setResolution} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="1080p" id="1080p" />
@@ -453,7 +552,10 @@ function App() {
                       </div>
                       
                       <div>
-                        <Label>派生版本数: {additionalVersions}本</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>派生版本数: {additionalVersions}本</Label>
+                          <HelpIcon text={helpTexts.additionalVersions} />
+                        </div>
                         <Slider
                           value={[additionalVersions]}
                           onValueChange={(value) => setAdditionalVersions(value[0])}
@@ -465,7 +567,10 @@ function App() {
                       </div>
                       
                       <div>
-                        <Label>納期: {formatDelivery(deliveryWeeks)}</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>納期: {formatDelivery(deliveryWeeks)}</Label>
+                          <HelpIcon text={helpTexts.deliveryWeeks} />
+                        </div>
                         <Slider
                           value={[deliveryWeeks]}
                           onValueChange={(value) => setDeliveryWeeks(value[0])}
@@ -499,7 +604,10 @@ function App() {
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
                       <div>
-                        <Label>企画レベル</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>企画レベル</Label>
+                          <HelpIcon text={helpTexts.planningLevel} />
+                        </div>
                         <RadioGroup value={planningLevel} onValueChange={setPlanningLevel} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="L0" id="L0" />
@@ -521,9 +629,9 @@ function App() {
                       </div>
                       
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-2">
                           <Label>ワークショップ回数: {workshops}回</Label>
-                          <HelpCircle className="w-4 h-4 text-muted-foreground" title="要件定義・方向性すり合わせの共同作業回数（1回=約3h）" />
+                          <HelpIcon text={helpTexts.workshops} />
                         </div>
                         <Slider
                           value={[workshops]}
@@ -536,9 +644,9 @@ function App() {
                       </div>
                       
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-2">
                           <Label>コンセプト案数: {conceptVersions}案</Label>
-                          <HelpCircle className="w-4 h-4 text-muted-foreground" title="初回1案。追加案は比較検討用の別軸提案（追加1案=11h）" />
+                          <HelpIcon text={helpTexts.conceptVersions} />
                         </div>
                         <Slider
                           value={[conceptVersions]}
@@ -551,7 +659,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>リサーチ</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>リサーチ</Label>
+                          <HelpIcon text={helpTexts.research} />
+                        </div>
                         <RadioGroup value={research} onValueChange={setResearch} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="none" id="research-none" />
@@ -569,7 +680,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>インタビュー数: {interviews}件</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>インタビュー数: {interviews}件</Label>
+                          <HelpIcon text={helpTexts.interviews} />
+                        </div>
                         <Slider
                           value={[interviews]}
                           onValueChange={(value) => setInterviews(value[0])}
@@ -581,7 +695,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>絵コンテ粒度</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>絵コンテ粒度</Label>
+                          <HelpIcon text={helpTexts.storyboardDetail} />
+                        </div>
                         <RadioGroup value={storyboardDetail} onValueChange={setStoryboardDetail} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="rough" id="storyboard-rough" />
@@ -605,10 +722,14 @@ function App() {
                           onCheckedChange={setBrandGuide}
                         />
                         <Label htmlFor="brandGuide">ブランドガイド有無</Label>
+                        <HelpIcon text={helpTexts.brandGuide} />
                       </div>
 
                       <div>
-                        <Label>決裁段層</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>決裁段層</Label>
+                          <HelpIcon text={helpTexts.approvalLayers} />
+                        </div>
                         <RadioGroup value={approvalLayers} onValueChange={setApprovalLayers} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="single" id="approval-single" />
@@ -643,7 +764,10 @@ function App() {
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
                       <div>
-                        <Label className="text-sm font-medium">スクラッチモデル数</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label className="text-sm font-medium">スクラッチモデル数</Label>
+                          <HelpIcon text={helpTexts.scratchModels} />
+                        </div>
                         <div className="grid grid-cols-3 gap-2 mt-2">
                           <div>
                             <Label className="text-xs">小(8h): {scratchModels.S}</Label>
@@ -682,7 +806,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label className="text-sm font-medium">CADモデル数</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label className="text-sm font-medium">CADモデル数</Label>
+                          <HelpIcon text={helpTexts.cadModels} />
+                        </div>
                         <div className="grid grid-cols-3 gap-2 mt-2">
                           <div>
                             <Label className="text-xs">小(6h): {cadModels.small}</Label>
@@ -727,6 +854,7 @@ function App() {
                           onCheckedChange={setCadClean}
                         />
                         <Label htmlFor="cadClean">CADクリーン状態</Label>
+                        <HelpIcon text={helpTexts.cadClean} />
                       </div>
                     </CardContent>
                   </CollapsibleContent>
@@ -747,7 +875,10 @@ function App() {
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
                       <div>
-                        <Label>複雑度</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>複雑度</Label>
+                          <HelpIcon text={helpTexts.animationComplexity} />
+                        </div>
                         <RadioGroup value={animationComplexity} onValueChange={setAnimationComplexity} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="camera" id="camera" />
@@ -769,7 +900,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>モーショングラフィックス</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>モーショングラフィックス</Label>
+                          <HelpIcon text={helpTexts.motionGraphics} />
+                        </div>
                         <RadioGroup value={motionGraphics} onValueChange={setMotionGraphics} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="none" id="motion-none" />
@@ -791,7 +925,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>ルック開発</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>ルック開発</Label>
+                          <HelpIcon text={helpTexts.lookDevelopment} />
+                        </div>
                         <RadioGroup value={lookDevelopment} onValueChange={setLookDevelopment} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="light" id="look-light" />
@@ -826,7 +963,10 @@ function App() {
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
                       <div>
-                        <Label>対応言語</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>対応言語</Label>
+                          <HelpIcon text={helpTexts.languages} />
+                        </div>
                         <div className="mt-2 space-y-2">
                           {[
                             { code: 'ja', name: '日本語' },
@@ -847,7 +987,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>ナレーション種類</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>ナレーション種類</Label>
+                          <HelpIcon text={helpTexts.narrationTypes} />
+                        </div>
                         <div className="mt-2 space-y-3">
                           {languages.map(lang => (
                             <div key={lang} className="space-y-2">
@@ -877,7 +1020,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>字幕言語数: {subtitles}言語</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>字幕言語数: {subtitles}言語</Label>
+                          <HelpIcon text={helpTexts.subtitles} />
+                        </div>
                         <Slider
                           value={[subtitles]}
                           onValueChange={(value) => setSubtitles(value[0])}
@@ -889,7 +1035,10 @@ function App() {
                       </div>
 
                       <div>
-                        <Label>原稿支給</Label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Label>原稿支給</Label>
+                          <HelpIcon text={helpTexts.scriptProvided} />
+                        </div>
                         <RadioGroup value={scriptProvided} onValueChange={setScriptProvided} className="mt-2">
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="complete" id="script-complete" />
@@ -930,12 +1079,16 @@ function App() {
                           onCheckedChange={setLiveAction}
                         />
                         <Label htmlFor="liveAction">実写撮影有無</Label>
+                        <HelpIcon text={helpTexts.liveAction} />
                       </div>
                       
                       {liveAction && (
                         <>
                           <div>
-                            <Label>撮影日数: {liveActionDays}日</Label>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Label>撮影日数: {liveActionDays}日</Label>
+                              <HelpIcon text={helpTexts.liveActionDays} />
+                            </div>
                             <Slider
                               value={[liveActionDays]}
                               onValueChange={(value) => setLiveActionDays(value[0])}
@@ -953,6 +1106,7 @@ function App() {
                               onCheckedChange={setLocationScouting}
                             />
                             <Label htmlFor="locationScouting">ロケハン有無</Label>
+                            <HelpIcon text={helpTexts.locationScouting} />
                           </div>
                         </>
                       )}
@@ -1038,10 +1192,6 @@ function App() {
                     <span>{formatCurrency(estimate.management)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>利益 (18%)</span>
-                    <span>{formatCurrency(estimate.profit)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
                     <span>予備費 (10%)</span>
                     <span>{formatCurrency(estimate.contingency)}</span>
                   </div>
@@ -1099,6 +1249,7 @@ function App() {
                             <li>企画レベル: {planningLevel}</li>
                             <li>ワークショップ: {workshops}回</li>
                             <li>コンセプト案: {conceptVersions}案</li>
+                            <li>決裁段層: {approvalLayers}</li>
                             <li>CADモデル: 小{cadModels.small}・中{cadModels.medium}・大{cadModels.large}</li>
                             <li>アニメーション: {animationComplexity}</li>
                             <li>対応言語: {languages.join(', ')}</li>
@@ -1115,6 +1266,7 @@ function App() {
                             <li>支給3DCADは変換・整備を前提とした工数です</li>
                             <li>リテイクは2回分を含みます</li>
                             <li>BGMはライセンス料1曲分を含みます</li>
+                            <li>利益は各費目に比例配分されています</li>
                           </ul>
                         </div>
                         
