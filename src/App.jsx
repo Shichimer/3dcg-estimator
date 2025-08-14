@@ -72,6 +72,7 @@ function App() {
   // 単価設定（編集可能）
   const [rates, setRates] = useState({
     pm: 9000,
+    director: 10000, // 新規追加
     planner: 9000,
     writer: 7500,
     designer: 8000,
@@ -86,7 +87,11 @@ function App() {
     narratorAI: 500,
     narratorHuman: 50000,
     studio: 15000,
-    bgmLicense: 20000
+    bgmLicense: 20000,
+    // パーセンテージ設定
+    managementRate: 15, // デフォルト15%
+    contingencyRate: 10,
+    taxRate: 10
   })
 
   // プリセット設定
@@ -182,6 +187,7 @@ function App() {
   // 単価設定の表示名とヘルプテキスト
   const rateLabels = {
     pm: { name: 'プロジェクトマネージャー', unit: '円/時間', help: '企画・構成、実写撮影の管理業務に影響' },
+    director: { name: 'ディレクター', unit: '円/時間', help: 'プロデュース・ディレクション費用に影響' },
     planner: { name: 'プランナー', unit: '円/時間', help: '企画・構成の企画レベル、ワークショップ、リサーチに影響' },
     writer: { name: 'ライター', unit: '円/時間', help: '言語関連の原稿作成、字幕作成に影響' },
     designer: { name: 'デザイナー', unit: '円/時間', help: '企画・構成の絵コンテ、ブランドガイド作成に影響' },
@@ -196,7 +202,10 @@ function App() {
     narratorAI: { name: 'AIナレーター', unit: '円/分', help: '言語関連のAI音声ナレーションに影響' },
     narratorHuman: { name: '人間ナレーター', unit: '円/30分', help: '言語関連の人間音声ナレーションに影響' },
     studio: { name: 'スタジオ', unit: '円/時間', help: '実写撮影のスタジオ使用料に影響' },
-    bgmLicense: { name: 'BGMライセンス', unit: '円/曲', help: '言語関連のBGM使用料に影響' }
+    bgmLicense: { name: 'BGMライセンス', unit: '円/曲', help: '言語関連のBGM使用料に影響' },
+    managementRate: { name: '管理費率', unit: '%', help: '管理費のパーセンテージ（デフォルト15%）' },
+    contingencyRate: { name: '予備費率', unit: '%', help: '予備費のパーセンテージ（デフォルト10%）' },
+    taxRate: { name: '消費税率', unit: '%', help: '消費税のパーセンテージ（デフォルト10%）' }
   }
 
   // ヘルプテキスト定義
@@ -524,23 +533,33 @@ function App() {
     }
     planningCost *= approvalMultiplier[approvalLayers]
     
-    // プロジェクト管理費用
-    let projectManagementCost = 0
-    const totalProjectHours = durationMinutes * 0.5 // 基本管理工数
-    projectManagementCost += totalProjectHours * rates.pm
+    // プロデュース・ディレクション費用（修正版）
+    let directionCost = 0
+    // 基本ディレクション工数（動画尺に比例）
+    const baseDirectionHours = durationMinutes * 1.5
+    directionCost += baseDirectionHours * rates.director
     
-    // 企画レベルによる管理工数追加
-    const managementMultiplier = {
+    // 企画レベルによるディレクション工数追加
+    const directionMultiplier = {
       L0: 1.0,
-      L1: 1.2,
-      L2: 1.5,
-      L3: 2.0
+      L1: 1.3,
+      L2: 1.8,
+      L3: 2.5
     }
-    projectManagementCost *= managementMultiplier[planningLevel]
+    directionCost *= directionMultiplier[planningLevel]
     
-    // ワークショップ・インタビューによる管理工数追加
-    projectManagementCost += workshops * 1 * rates.pm
-    projectManagementCost += interviews * 0.5 * rates.pm
+    // ワークショップ・インタビューによるディレクション工数追加
+    directionCost += workshops * 2 * rates.director
+    directionCost += interviews * 1 * rates.director
+    
+    // 複雑度によるディレクション工数追加
+    const complexityMultiplier = {
+      camera: 1.0,
+      exploded: 1.2,
+      mechanical: 1.4,
+      physics: 1.6
+    }
+    directionCost *= complexityMultiplier[animationComplexity]
     
     // モデリング費用
     let modelingCost = 0
@@ -584,19 +603,22 @@ function App() {
     const resolutionMultiplier = resolution === '4K' ? 1.6 : 1.0
     renderingCost += shots * 2 * rates.cgGeneralist * resolutionMultiplier
     
-    // 編集費用
+    // 編集費用（修正版：高めに設定）
     let editingCost = 0
-    editingCost += durationMinutes * 2 * rates.compositor
-    editingCost += additionalVersions * durationMinutes * 1 * rates.compositor
+    // 基本編集工数を増加
+    editingCost += durationMinutes * 4 * rates.compositor // 2→4に増加
+    editingCost += additionalVersions * durationMinutes * 2 * rates.compositor // 1→2に増加
     
     // 言語関連費用
     let languageCost = 0
     
-    // 原稿作成費用
+    // 原稿作成費用（修正版：高めに設定）
     if (scriptProvided === 'none') {
-      languageCost += durationMinutes * 100 * rates.writer / 400 // 400文字/分想定
+      // 完全に原稿を作成する場合の工数を大幅増加
+      languageCost += durationMinutes * 200 * rates.writer / 400 // 100→200に増加
     } else if (scriptProvided === 'partial') {
-      languageCost += durationMinutes * 50 * rates.writer / 400
+      // 部分支給の場合も工数を増加
+      languageCost += durationMinutes * 120 * rates.writer / 400 // 50→120に増加
     }
     
     // ナレーション費用
@@ -639,21 +661,20 @@ function App() {
     }
     
     // 小計
-    const subtotal = projectManagementCost + planningCost + modelingCost + animationCost + renderingCost + editingCost + languageCost + liveActionCost
+    const subtotal = directionCost + planningCost + modelingCost + animationCost + renderingCost + editingCost + languageCost + liveActionCost
     
     // スケジュール調整
     const rushMultiplier = deliveryMonths < 3 ? 1 + Math.min((3 - deliveryMonths) * 0.2, 0.4) : 1
     const adjustedSubtotal = subtotal * rushMultiplier
     
-    // 諸経費（利益を各費目に分散）
-    const management = adjustedSubtotal * 0.08
-    const profit = adjustedSubtotal * 0.18
-    const contingency = adjustedSubtotal * 0.10
+    // 諸経費（パーセンテージ設定可能）
+    const management = adjustedSubtotal * (rates.managementRate / 100)
+    const contingency = adjustedSubtotal * (rates.contingencyRate / 100)
     
-    // 利益を各費目に比例配分
-    const totalBeforeProfit = adjustedSubtotal + management + contingency
+    // 利益を各費目に比例配分（利益率18%固定）
+    const profit = adjustedSubtotal * 0.18
     const profitDistribution = {
-      projectManagement: (projectManagementCost * rushMultiplier / adjustedSubtotal) * profit,
+      direction: (directionCost * rushMultiplier / adjustedSubtotal) * profit,
       planning: (planningCost * rushMultiplier / adjustedSubtotal) * profit,
       modeling: (modelingCost * rushMultiplier / adjustedSubtotal) * profit,
       animation: (animationCost * rushMultiplier / adjustedSubtotal) * profit,
@@ -663,14 +684,14 @@ function App() {
       liveAction: (liveActionCost * rushMultiplier / adjustedSubtotal) * profit
     }
     
-    const beforeTax = totalBeforeProfit + profit
-    const tax = beforeTax * 0.10
+    const beforeTax = adjustedSubtotal + management + contingency + profit
+    const tax = beforeTax * (rates.taxRate / 100)
     const total = beforeTax + tax
     
     return {
       subtotal: adjustedSubtotal,
       breakdown: {
-        projectManagement: projectManagementCost * rushMultiplier + profitDistribution.projectManagement,
+        direction: directionCost * rushMultiplier + profitDistribution.direction,
         planning: planningCost * rushMultiplier + profitDistribution.planning,
         modeling: modelingCost * rushMultiplier + profitDistribution.modeling,
         animation: animationCost * rushMultiplier + profitDistribution.animation,
@@ -884,6 +905,8 @@ function App() {
                           value={value}
                           onChange={(e) => handleRateChange(key, e.target.value)}
                           className="flex-1"
+                          min={key.includes('Rate') ? 0 : undefined}
+                          max={key.includes('Rate') ? 100 : undefined}
                         />
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
                           {rateLabels[key].unit}
@@ -1549,8 +1572,8 @@ function App() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span>プロジェクト管理</span>
-                    <span>{formatCurrency(estimate.breakdown.projectManagement)}</span>
+                    <span>プロデュース・ディレクション</span>
+                    <span>{formatCurrency(estimate.breakdown.direction)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>企画・構成</span>
@@ -1588,15 +1611,15 @@ function App() {
                     <span>{formatCurrency(estimate.subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>管理費 (8%)</span>
+                    <span>管理費 ({rates.managementRate}%)</span>
                     <span>{formatCurrency(estimate.management)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>予備費 (10%)</span>
+                    <span>予備費 ({rates.contingencyRate}%)</span>
                     <span>{formatCurrency(estimate.contingency)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>消費税 (10%)</span>
+                    <span>消費税 ({rates.taxRate}%)</span>
                     <span>{formatCurrency(estimate.tax)}</span>
                   </div>
                 </CardContent>
